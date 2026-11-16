@@ -80,7 +80,7 @@ class StaticExportTest(unittest.TestCase):
         self.assertEqual((self.output / 'keep.txt').read_text(), 'user file')
         other = connect(str(self.root / 'empty.sqlite'))
         try:
-            with self.assertRaisesRegex(ValueError, 'No HN-linked'):
+            with self.assertRaisesRegex(ValueError, 'No linked'):
                 export_static(other, self.root / 'empty-export')
         finally:
             other.close()

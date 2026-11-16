@@ -6,8 +6,9 @@ from .article_images import fetch_article_image
 
 
 def enrich(db, limit=100, request=request_json, log=print):
-    rows = db.execute('''SELECT a.* FROM articles a JOIN stats s ON a.id=s.article_id
-        WHERE a.enriched_at<? ORDER BY a.enriched_at,s.people DESC LIMIT ?''', (int(time.time()) - 30 * 86400, limit)).fetchall()
+    rows = db.execute('''SELECT a.* FROM articles a LEFT JOIN stats s ON a.id=s.article_id
+        WHERE a.enriched_at<? AND (s.article_id IS NOT NULL OR EXISTS(SELECT 1 FROM source_mentions m WHERE m.article_id=a.id))
+        ORDER BY a.enriched_at,coalesce(s.people,0) DESC LIMIT ?''', (int(time.time()) - 30 * 86400, limit)).fetchall()
     groups = {}
     for row in rows:
         groups.setdefault(row['lang'], []).append(row)

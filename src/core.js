@@ -1,4 +1,5 @@
 import { isMainPage } from './article-pages.js';
+import { sourceMetrics } from './communities.js';
 export const YEAR = 365 * 24 * 60 * 60;
 export function sixMonthsAgo(now = Date.now() / 1000) {
   const date = new Date(now * 1000), day = date.getUTCDate();
@@ -84,6 +85,7 @@ export function mergeArticles(existing, incoming) {
       thumbnail: article.thumbnail || previous.thumbnail, description: article.description || previous.description,
       thumbnailSource: article.thumbnail ? article.thumbnailSource : previous.thumbnailSource,
       imageMetadataVersion: Math.max(article.imageMetadataVersion || 0, previous.imageMetadataVersion || 0),
+      ...((previous.sourceMetrics || article.sourceMetrics) ? { sourceMetrics: article.sourceMetrics || previous.sourceMetrics } : {}),
       mentions: [...mentions.values()].sort((a, b) => b.createdAt - a.createdAt), sample: false });
   }
   return [...map.values()];
@@ -124,9 +126,11 @@ export function rankArticles(articles, mode, { now = Date.now() / 1000, random =
       Math.sqrt(1 + uniqueAuthors(article)) })).sort((a, b) => a.key - b.key).map(x => x.article);
   }
   const since = mode === 'rising' ? sixMonthsAgo(now) : 0;
-  return articles.filter(a => mode !== 'rising' || a.sample || a.mentions.some(m => m.createdAt >= since && m.createdAt <= now))
-    .slice().sort((a, b) => uniqueAuthors(b, since, mode === 'rising' ? now : Infinity) - uniqueAuthors(a, since, mode === 'rising' ? now : Infinity) ||
-      b.mentions.filter(m => m.createdAt >= since && (mode !== 'rising' || m.createdAt <= now)).length - a.mentions.filter(m => m.createdAt >= since && (mode !== 'rising' || m.createdAt <= now)).length ||
+  const mentions = a => a.mentions.filter(m => (!m.source || m.source === 'hn') && m.createdAt >= since && (mode !== 'rising' || m.createdAt <= now));
+  const linkers = a => mode === 'rising' ? sourceMetrics(a).hn?.recentLinkers ?? new Set(mentions(a).filter(m => m.author !== '[deleted]').map(m => m.author)).size : sourceMetrics(a).hn?.distinctLinkers || 0;
+  const count = a => sourceMetrics(a).hn?.[mode === 'rising' ? 'recentMentionCount' : 'mentionCount'] ?? mentions(a).length;
+  return articles.filter(a => a.sample || Boolean(sourceMetrics(a).hn) && (mode !== 'rising' || count(a) > 0 && (sourceMetrics(a).hn.latestMention ?? now) >= since))
+    .slice().sort((a, b) => linkers(b) - linkers(a) || count(b) - count(a) ||
       a.title.localeCompare(b.title));
 }
 

@@ -298,7 +298,7 @@ db.close()
   await refreshed;
   await page.waitForFunction(() => document.querySelector('#pull-refresh').dataset.state === 'idle');
   assert.equal(await page.locator(`.article-card[data-id="${seenId}"]`).count(), 0);
-  await page.getByRole('button', { name: 'View Hacker News mentions' }).first().click();
+  await page.getByRole('button', { name: 'View discussion sources' }).first().click();
   await page.locator('.mention').first().waitFor();
   assert.ok(await page.locator('dialog a[href*="news.ycombinator.com/item?id="]').count() >= 2);
   await page.keyboard.press('Escape');
@@ -367,12 +367,12 @@ db.close()
     const indices = sort === 'wikipedia' ? fixtureWikipedia.order : sort === 'rising' ? fixtureRising : fixtureTopics[topic];
     return indices.filter(i => allowed.has(i) && !hidden.includes(fixtureCards[i].id)).slice(0, 12).map(i => fixtureCards[i].title);
   };
-  assert.equal(await page.getByRole('button', { name: 'Sort posts: For You (HN)', exact: true }).count(), 1);
+  assert.equal(await page.getByRole('button', { name: 'Sort posts: For You', exact: true }).count(), 1);
   assert.equal(await page.locator('.source-note').count(), 1);
   assert.equal(await page.locator('.feed-sort .source-note').count(), 1, 'Article count and sorting share one toolbar');
   assert.equal(await page.locator('#page-content > .source-note').count(), 0, 'No second count header');
   await page.locator('#sort-button').click();
-  assert.deepEqual(await page.getByRole('menuitemradio').evaluateAll(items => items.map(item => item.getAttribute('aria-label'))), ['For You (HN)', 'Top (HN)', 'Rising (HN)', 'Top (Wikipedia)']);
+  assert.deepEqual(await page.getByRole('menuitemradio').evaluateAll(items => items.map(item => item.getAttribute('aria-label'))), ['For You', 'Top (HN)', 'Rising (HN)', 'Top (Wikipedia)']);
   await page.keyboard.press('Escape');
   const sortButtonBox = await page.locator('#sort-button').boundingBox();
   const topicTabsBox = await page.locator('.home-tabs-host').boundingBox();
@@ -430,7 +430,7 @@ db.close()
   await page.locator('#sort-button').click();
   await page.screenshot({ path: 'test-results/feed-sorting.png' });
   await page.keyboard.press('Escape');
-  await chooseSort('For You (HN)'); await waitFeed();
+  await chooseSort('For You'); await waitFeed();
   await page.getByRole('tab', { name: 'Mathematics', exact: true }).click(); await waitFeed();
 
   await page.getByRole('button', { name: 'Search', exact: true }).click();
@@ -614,6 +614,31 @@ db.close()
   await page.getByRole('button', { name: 'Browse topics' }).click();
   assert.deepEqual((await pickerOrder()).slice(0, 5), ['science', 'history', 'computing', 'arts', 'society']);
   assert.equal((await pickerOrder()).length, 21, 'New groups are appended to a saved order');
+  await page.keyboard.press('Escape');
+  // Saved LessWrong posts retain their source even when archive context is offline.
+  await page.evaluate(() => {
+    const mention = { id: 'lesswrong:fixtureComment', source: 'lesswrong', author: 'LW reader',
+      kind: 'comment', createdAt: 1700000000, storyTitle: 'A LessWrong discussion',
+      storyUrl: 'https://www.lesswrong.com/posts/fixturePost',
+      url: 'https://www.lesswrong.com/posts/fixturePost?commentId=fixtureComment' };
+    const article = { id: 'en:LessWrong fixture', title: 'LessWrong fixture', lang: 'en', mentions: [mention],
+      firstParagraph: 'A saved Wikipedia article.', imageMetadataVersion: 2,
+      sourceMetrics: { lesswrong: { distinctLinkers: 1, mentionCount: 1, normalizedLinkers: 10 } },
+      metrics: { distinctLinkers: 1, mentionCount: 1 }, at: Date.now() };
+    localStorage.setItem('wikihack:profile-v1', JSON.stringify({ version: 1, likes: { [article.id]: article }, seen: {}, rejected: {} }));
+  });
+  await page.reload();
+  await page.locator('.article-card').first().waitFor();
+  await page.getByRole('button', { name: 'Likes', exact: true }).click();
+  assert.match(await page.locator('.mention-label').textContent(), /1 person on LessWrong/);
+  await page.getByRole('button', { name: 'View discussion sources' }).click();
+  await page.locator('.mention').first().waitFor();
+  assert.equal(await page.locator('dialog .mention-link').getAttribute('href'), 'https://www.lesswrong.com/posts/fixturePost?commentId=fixtureComment');
+  assert.equal(await page.locator('dialog a[href*="news.ycombinator.com"]').count(), 0, 'LessWrong IDs never become HN links');
+  const sourceTitleBox = await page.locator('dialog .story-title').boundingBox();
+  const sourceLinkBox = await page.locator('dialog .mention-link').boundingBox();
+  assert.ok(sourceLinkBox.y >= sourceTitleBox.y + sourceTitleBox.height + 10, 'Source links sit below the discussion title even without a quoted body');
+  await page.screenshot({ path: 'test-results/lesswrong-sources.png' });
   await page.keyboard.press('Escape');
   assert.deepEqual(errors, []);
   assert.ok(requests.some(url => url.includes('/search/')));

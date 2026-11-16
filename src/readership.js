@@ -1,4 +1,5 @@
 import { fetchJson } from './services.js';
+import { interestLinkers } from './communities.js';
 
 const cache = new Map();
 const DAY = 86400000;
@@ -16,8 +17,8 @@ export function readershipWeight(article, now = Date.now()) {
       !Number.isFinite(data.checkedAt) || now - data.checkedAt > DAY || data.checkedAt > now) return 1;
   const views = data.dailyViews;
   const interest = Math.min(1, Math.log1p(views) / Math.log1p(100));
-  const linkers = article.metrics?.distinctLinkers ?? new Set((article.mentions || []).map(m => m.author)).size;
-  // Strongest penalty requires BOTH weak HN interest and low Wikipedia readership.
+  const linkers = interestLinkers(article);
+  // Strongest penalty requires BOTH weak community interest and low Wikipedia readership.
   const lowTraffic = (.7 + .3 * interest) * (linkers < 5 ? .5 + .5 * interest : 1);
   const boost = .15 * Math.min(1, Math.max(0, Math.log10(Math.max(100, views) / 100) / 2));
   return lowTraffic + boost;

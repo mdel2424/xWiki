@@ -35,7 +35,7 @@ def refresh_rising(output='data/catalog', now=None):
                 for _ in range(article['context']['count']):
                     mention = next(mentions)
                     offset += 1
-                    if since <= mention['createdAt'] <= now:
+                    if mention.get('source', 'hn') == 'hn' and since <= mention['createdAt'] <= now:
                         count += 1
                         if mention['author'] != '[deleted]':
                             people.add(mention['author'])

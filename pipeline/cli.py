@@ -30,6 +30,11 @@ def main():
     metadata.add_argument('--limit', type=int, default=1000)
     local = commands.add_parser('import-jsonl', help='Import HN-format records from a local JSONL export')
     local.add_argument('file')
+    lesswrong = commands.add_parser('lesswrong', help='Import Wikipedia links and source metadata from LessWrong posts and comments')
+    lesswrong.add_argument('--dataset', default='x65617379/lesswrong_260509')
+    lesswrong.add_argument('--revision')
+    lesswrong.add_argument('--max-posts', type=int)
+    lesswrong.add_argument('--file', help='Read a local Parquet file instead of downloading the snapshot')
     export = commands.add_parser('export', help='Export the complete static catalogue, search and original HN context')
     export.add_argument('--output', default='data/catalog')
     export.add_argument('--limit', type=int, default=None)
@@ -41,7 +46,12 @@ def main():
         if args.command == 'status':
             print(json.dumps(status(db), indent=2))
             return
-        if args.command == 'sync':
+        if args.command == 'lesswrong':
+            if args.max_posts is not None and args.max_posts <= 0:
+                parser.error('--max-posts must be positive.')
+            from .lesswrong import import_snapshot
+            import_snapshot(db, args.dataset, args.revision, args.max_posts, args.file)
+        elif args.command == 'sync':
             sync_snapshot(db, max_shards=args.max_shards)
             with db:
                 resolve_threads(db)

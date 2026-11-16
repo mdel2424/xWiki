@@ -24,14 +24,19 @@ def refresh_discovery(output='data/catalog'):
         raise ValueError('Expected a WikiHack static catalogue.')
     root = output / manifest['generation']
     counts = []
+    sources = {'hn': [], 'lesswrong': []}
     for number in range((manifest['articleCount'] + manifest['articleShardSize'] - 1) // manifest['articleShardSize']):
         for article in json.loads((root / f'articles/{number}.json').read_text()):
             if article['_index'] != len(counts):
                 raise ValueError('Invalid article order; existing weights were kept.')
             counts.append(min(255, max(0, article['metrics']['distinctLinkers'])))
+            metrics = article.get('sourceMetrics', {'hn': article['metrics']})
+            for source in sources:
+                data = metrics.get(source, {})
+                sources[source].append(max(1, data.get('distinctLinkers', 0)) if data.get('mentionCount', 0) else 0)
     if len(counts) != manifest['articleCount']:
         raise ValueError('Incomplete article archive; existing weights were kept.')
-    encoded = json.dumps(counts, separators=(',', ':')).encode('utf-8')
+    encoded = json.dumps({'version': 2, 'sources': sources} if any(sources['lesswrong']) else counts, separators=(',', ':')).encode('utf-8')
     name = f'discovery-weights-{hashlib.sha256(encoded).hexdigest()[:16]}.json'
     atomic_write(root / name, encoded)
     manifest['discoveryWeights'] = name

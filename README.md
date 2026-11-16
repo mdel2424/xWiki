@@ -6,7 +6,7 @@
 
 **A Wikipedia rabbit hole, one post at a time.**
 
-xWiki turns Wikipedia articles shared on Hacker News into a personal, X-style feed. Explore more than 200,000 articles, follow your favorite subjects, and jump into the discussions that made people share them.
+xWiki turns Wikipedia articles shared on Hacker News and LessWrong into a personal, X-style feed. Explore more than 200,000 articles, follow your favorite subjects, and jump into the discussions that made people share them.
 
 **[Try the app →](https://mdel2424.github.io/XWiki/)** · [Run locally](#run-locally) · [Development guide](docs/development.md)
 
@@ -29,9 +29,9 @@ xWiki turns Wikipedia articles shared on Hacker News into a personal, X-style fe
 
 - **A feed that learns your interests.** Home’s For You sort mixes discoveries, popular articles, and rising topics. Heart a post to see more related ideas; mark it as seen to hide it, or choose Not interested to steer recommendations away from it.
 - **Your subjects, your timeline.** Open any topic or pin favorites beside Home. The picker starts alphabetically; drag its handles to set your own order, including your pinned tabs. Computing, Physics & Chemistry, and History start pinned; your choices stay saved in your browser.
-- **Choose how you explore.** Beneath the topic tabs, sort by For You (HN), Top (HN), Rising (HN), or Top (Wikipedia). Every option stays within your selected subject.
+- **Choose how you explore.** Beneath the topic tabs, sort by For You, Top (HN), Rising (HN), or Top (Wikipedia). Every option stays within your selected subject.
 - **Read a little. Explore further.** Previews use the lead image or the first suitable image in the article where available. Expand a preview to its full first paragraph, or open the article on Wikipedia when something catches your attention.
-- **See why it was shared.** The comments button opens the original Hacker News mentions, with links back to their discussions.
+- **See why it was shared.** The comments button opens Hacker News and LessWrong source links. Shared articles appear once, with both communities credited.
 - **Find your next rabbit hole.** Search across the archive, then return to the same topic and sort on Home.
 
 Explore **21 subjects**, including Places, Computing, History, Mathematics, Philosophy & Religion, Biology & Medicine, and Internet Culture. Topics use [Wikipedia’s own article-topic predictions](https://wikitech.wikimedia.org/wiki/Search/articletopic), so a history article can belong in History without having “history” in its title. Each list starts with the personalized discovery feed and supports all four sorts.
@@ -56,6 +56,6 @@ Python and SQLite are used separately to prepare the archive. For building, test
 
 ## Sources & credits
 
-Articles are discovered through the [Open Index Hacker News archive](https://huggingface.co/datasets/open-index/hacker-news), supplemented by the [official Hacker News API](https://github.com/HackerNews/API), with article content from Wikipedia.
+Articles are discovered through the [Open Index Hacker News archive](https://huggingface.co/datasets/open-index/hacker-news), the [official Hacker News API](https://github.com/HackerNews/API), and a [LessWrong snapshot](https://huggingface.co/datasets/x65617379/lesswrong_260509), with article content from Wikipedia. For You balances discovery weight across both communities and compares popularity within each source. LessWrong imports retain source links and metadata rather than republishing forum text.
 
-Wikipedia text is CC BY-SA; article histories and image pages provide attribution and image-specific licenses. xWiki is independent of X, Wikipedia, Hacker News, and the original WikiHack.
+Wikipedia text is CC BY-SA; article histories and image pages provide attribution and image-specific licenses. xWiki is independent of X, Wikipedia, Hacker News, LessWrong, and the original WikiHack.

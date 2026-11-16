@@ -114,6 +114,8 @@ def connect(file, readonly=False):
         CREATE TABLE IF NOT EXISTS retry_ids(id INTEGER PRIMARY KEY, reason TEXT, attempts INTEGER DEFAULT 1);
         CREATE VIRTUAL TABLE IF NOT EXISTS article_search USING fts5(id UNINDEXED,title,description,extract,categories);
     ''')
+    from .lesswrong import setup
+    setup(db)
     return db
 
 
@@ -205,6 +207,8 @@ def merge_metadata(db, original_id, article):
     if original_id != canonical:
         db.execute('INSERT OR IGNORE INTO mentions SELECT item_id,?,author,created_at,kind,text,score FROM mentions WHERE article_id=?', (canonical, original_id))
         db.execute('DELETE FROM mentions WHERE article_id=?', (original_id,))
+        db.execute('INSERT OR IGNORE INTO source_mentions SELECT source,item_id,? FROM source_mentions WHERE article_id=?', (canonical, original_id))
+        db.execute('DELETE FROM source_mentions WHERE article_id=?', (original_id,))
         db.execute('DELETE FROM stats WHERE article_id=?', (original_id,))
         db.execute('UPDATE aliases SET canonical=? WHERE canonical=?', (canonical, original_id))
         db.execute('INSERT OR REPLACE INTO aliases VALUES (?,?)', (original_id, canonical))
@@ -246,7 +250,8 @@ def status(db):
         'tail': get_meta(db, 'tail'), 'statsAt': get_meta(db, 'stats_at'),
         'retryCount': db.execute('SELECT count(*) FROM retry_ids').fetchone()[0], 'unresolvedMentions': counts['unresolved'],
         'gaps': get_meta(db, 'gaps', []), 'gapsCheckedAt': get_meta(db, 'gaps_checked_at'),
-        'needsSetup': counts['items'] == 0}
+        'needsSetup': counts['items'] == 0,
+        'lesswrong': get_meta(db, 'lesswrong_snapshot')}
 
 
 def feed(db, mode='for-you', limit=60, offset=0, query='', seeds=(), mix_seed=0):

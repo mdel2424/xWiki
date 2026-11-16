@@ -32,11 +32,32 @@ Raw HF numeric types are mapped to HN story/comment/poll/pollopt/job names. Time
 
 URL processing covers HTTP/HTTPS, mobile hosts, language preservation, URL-encoded titles, anchors, `w/index.php?title=…`, and known non-article namespaces. Wikimedia redirects produce canonical article IDs and aliases. Languages remain separate. Shortlink domains and mentions without a Wikipedia URL are not expanded.
 
+## LessWrong
+
+The additional `x65617379/lesswrong_260509` snapshot is imported with
+`npm run data:lesswrong`. Its Parquet files are pinned to a repository revision, downloaded
+locally and scanned in small DuckDB batches. Thread replacement and row checkpoints share
+a transaction, so interrupted imports resume without duplicating references. Completing a
+new snapshot removes source records no longer present in it. Link extraction parses HTML
+anchors, preserving apostrophes and parentheses, and reuses the Wikipedia URL and namespace
+filters. Deleted/retracted comments are excluded. Cached Wikipedia predictions resolve
+redirects and missing pages; redirects move both HN and LessWrong references together.
+Only source metadata and original discussion URLs are published, not LessWrong bodies.
+The source card marks the dataset's license as unknown.
+
 ## Ranking
 
 Top (HN) counts distinct non-deleted authors per canonical article. Multiple links from one HN item/article pair count once; multiple posts by the same author do not increase distinct-linker count. Rising (HN) uses the same principle over the last six calendar months, as of the latest statistics rebuild. Full mention totals remain independent from the separate paginated comment files.
 
-For you retrieves separate random, Rising and Top candidate pools. Eight posts in each ten-post block come from archive-wide weighted random draws, one from Rising and one from Top. Featured picks are shuffled from the leading 1,000 positions in their respective ranking; the explicit Home sorts remain ordered by rank. Each source has its own permutation cursor. Draws refill around posts already loaded, rejected or seen, preventing cross-page duplicates and source overlap. When an eligible source is exhausted, remaining discoveries fill its slots.
+For You retrieves separate random, Rising (HN) and Top (HN) candidate pools. Eight posts in each ten-post block come from archive-wide weighted random draws, one from Rising and one from Top. Featured picks are shuffled from the leading 1,000 positions in their respective ranking; the explicit Home sorts remain ordered by rank. Each source has its own permutation cursor. Draws refill around posts already loaded, rejected or seen, preventing cross-page duplicates and source overlap. When an eligible source is exhausted, remaining discoveries fill its slots.
+
+With LessWrong present, discovery uses distinct linkers from each community separately.
+LessWrong counts map by their within-community percentile to HN-equivalent counts (ties
+share a percentile). The established HN penalty and cap below then apply to both. Each
+available community contributes equal total discovery weight, regardless of its size;
+shared articles receive both signals but occupy one position. No cross-site comparison
+of karma or raw vote totals is used. The published version-2 discovery index stores both
+count vectors; legacy HN-only array indexes still work.
 
 Discovery uses an exponential race without replacement. For fewer than five distinct linkers, weight is `0.02 * sqrt(max(1, count))`; otherwise it is `(min(count, 100) / 5)^0.65`. This gives under-five articles only 2–4% of a five-linker article's weight. Within the main pool, 20 linkers receive about 2.46 times the weight of five, and 100 receive about seven times the weight. The 100-linker cap avoids runaway concentration. The threshold suppresses the archive's dominant low-link tail; the exponent favors a typical draw with over ten linkers without removing rare discoveries. Repeated mentions from the same person do not increase the weight. A compact static count index lets the browser draw from the complete archive before fetching selected cards. The seeded permutation is cached for the session and paginated without repeated posts. Refresh creates a new draw. Top/Rising picks retain their separate uniform shuffle.
 
@@ -56,7 +77,7 @@ The global archive makes all-time candidates possible; before import the UI labe
 
 ## Home sorting and Wikipedia popularity
 
-Home separates the selected topic from its sort. The count and sort share one toolbar, with For You (HN), Top (HN), Rising (HN), and Top (Wikipedia) in that order. For You (HN) is the default. Top (HN) uses the complete all-time rank order; Rising (HN) uses the published six-month rank order. Both are filtered by the selected topic before pagination, rather than filtering only a global first page. Hidden posts are skipped while refilling pages. Search only searches the archive, with no ranking tabs.
+Home separates the selected topic from its sort. The count and sort share one toolbar, with For You, Top (HN), Rising (HN), and Top (Wikipedia) in that order. For You is the default. Top (HN) uses the complete all-time rank order; Rising (HN) uses the published six-month rank order. Both are filtered by the selected topic before pagination, rather than filtering only a global first page. Hidden posts are skipped while refilling pages. Search only searches the archive, with no ranking tabs.
 
 Top (Wikipedia) uses the indexed [`popularity_score`](https://www.mediawiki.org/wiki/Extension:CirrusSearch/Schema#popularity_score) retrieved through `prop=cirrusdoc&cdincludes=popularity_score`. Wikimedia defines this as a page’s share of pageviews on its language wiki. To make scores comparable across language editions, the publisher multiplies that share by the edition’s mean daily traffic from `meta=siteviews&pvisdays=30`. These are traffic-adjusted popularity estimates, not exact per-article 30-day view counts. Leading candidates are then verified against actual recent article readership: the median daily pageviews over 30 days, requiring at least 14 reported days. This reduces isolated spikes and corrects stale indexed estimates. The audit follows newly promoted candidates until the first 120 Home results and the first 12 results per topic are verified. Remaining positions retain indexed estimates; the artifact records reviewed ordinals and coverage explicitly. The separate live readership preference in For You still uses actual 30-day article view histories.
 
@@ -105,4 +126,4 @@ The implementation was exercised with deterministic local fixtures, including in
 
 ## Static publication
 
-`pipeline/static_export.py` exports all articles and original linked comments from a consistent database snapshot. Cards, search postings, rank orders, ID aliases and comment blocks are split into lazily fetched files. Context offsets are checked against full mention totals. A generation identifier prevents mixing resource paths from different snapshots. The browser client in `src/static-catalog.js` handles candidate retrieval, prefix search and context pagination without `/api` endpoints. The full current site is approximately 631 MB; the build rejects output above 950 MB.
+`pipeline/static_export.py` exports all articles and original linked comments from a consistent database snapshot. Cards, search postings, rank orders, ID aliases and comment blocks are split into lazily fetched files. Context offsets are checked against full mention totals. A generation identifier prevents mixing resource paths from different snapshots. The browser client in `src/static-catalog.js` handles candidate retrieval, prefix search and context pagination without `/api` endpoints. The full current site is approximately 675 MB; the build rejects output above 950 MB.

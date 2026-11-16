@@ -1,4 +1,5 @@
 import { readershipWeight } from './readership.js';
+import { interestLinkers, sourceLabel, sourceMetrics } from './communities.js';
 import { sixMonthsAgo } from './core.js';
 // Local, explainable content-based recommendations. No claim to reproduce X's model.
 const STOP = new Set(('the and for that this with from into are was were has have had but not its their they them ' +
@@ -51,7 +52,7 @@ export function cosine(a, b) {
 export function emptyProfile() { return { version: 1, likes: {}, rejected: {}, seen: {} }; }
 export function hidden(article, profile) { return Boolean(profile.rejected[article.id] || profile.seen?.[article.id]); }
 export function snapshot(article) {
-  return Object.fromEntries(['id', 'title', 'lang', 'description', 'extract', 'firstParagraph', 'categories', 'related', 'url', 'illustration', 'sample', 'mentions', 'metrics', 'thumbnail', 'thumbnailSource', 'imageMetadataVersion', 'readership', 'topics', 'topicPredictions', '_index']
+  return Object.fromEntries(['id', 'title', 'lang', 'description', 'extract', 'firstParagraph', 'categories', 'related', 'url', 'illustration', 'sample', 'mentions', 'metrics', 'sourceMetrics', 'thumbnail', 'thumbnailSource', 'imageMetadataVersion', 'readership', 'topics', 'topicPredictions', '_index']
     .filter(key => article[key] !== undefined).map(key => [key, article[key]]));
 }
 export function feedback(profile, article, action, now = Date.now()) {
@@ -108,13 +109,13 @@ export function recommend(articles, profile = emptyProfile(), { now = Date.now()
     positiveMatches.sort((a, b) => b.value - a.value);
     const affinity = positiveMatches.slice(0, 3).reduce((sum, m, j) => sum + m.value / (j + 1), 0);
     const aversion = Math.max(0, ...rejectedVectors.map(v => cosine(vector, v)));
-    const linkers = article.metrics?.distinctLinkers ?? new Set((article.mentions || []).map(m => m.author)).size;
+    const linkers = interestLinkers(article);
     const quality = Math.min(1, Math.log1p(linkers) / 8);
     const latest = article.metrics?.latestMention || Math.max(0, ...(article.mentions || []).map(m => m.createdAt));
     const recency = latest ? Math.exp(-Math.max(0, now / 1000 - latest) / (90 * 86400)) : 0;
     return { article, vector, aversion, quality, linkers, affinity,
       score: .15 * Math.log(readershipWeight(article, now)) + .45 * quality + .1 * recency + 4 * affinity - 6 * aversion + .1 * noise(article.id, seed) - (profile.likes[article.id] ? .4 : 0),
-      reason: affinity > .12 ? `Because you liked ${positiveMatches[0].title}` : 'From the HN collection' };
+      reason: affinity > .12 ? `Because you liked ${positiveMatches[0].title}` : `From the ${sourceLabel(article)} collection` };
   });
   // Eight archive-wide discoveries, one six-month trend, one all-time top post.
   const pattern = ['random', 'random', 'random', 'random', 'rising', 'random', 'random', 'random', 'random', 'top'];
@@ -124,9 +125,9 @@ export function recommend(articles, profile = emptyProfile(), { now = Date.now()
     (Math.pow(noise(b.article.id, seed), 1 / readershipWeight(b.article, now)) + b.affinity - 6 * b.aversion) - (Math.pow(noise(a.article.id, seed), 1 / readershipWeight(a.article, now)) + a.affinity - 6 * a.aversion));
   const queues = {
     random,
-    top: sources ? fromSource('top').sort((a, b) => noise(b.article.id, `top:${seed}`) - noise(a.article.id, `top:${seed}`)) : [...pool].sort((a, b) => b.linkers - a.linkers || (b.article.metrics?.mentionCount || 0) - (a.article.metrics?.mentionCount || 0)),
-    rising: sources ? fromSource('rising').sort((a, b) => noise(b.article.id, `rising:${seed}`) - noise(a.article.id, `rising:${seed}`)) : pool.filter(c => (c.article.metrics?.recentMentionCount > 0 && c.article.metrics?.latestMention >= sixMonthsAgo(now / 1000)) ||
-      c.article.mentions?.some(m => m.createdAt >= sixMonthsAgo(now / 1000))).sort((a, b) => (b.article.metrics?.recentLinkers || 0) - (a.article.metrics?.recentLinkers || 0)),
+    top: sources ? fromSource('top').sort((a, b) => noise(b.article.id, `top:${seed}`) - noise(a.article.id, `top:${seed}`)) : pool.filter(c => sourceMetrics(c.article).hn).sort((a, b) => (sourceMetrics(b.article).hn.distinctLinkers || 0) - (sourceMetrics(a.article).hn.distinctLinkers || 0)),
+    rising: sources ? fromSource('rising').sort((a, b) => noise(b.article.id, `rising:${seed}`) - noise(a.article.id, `rising:${seed}`)) : pool.filter(c => (sourceMetrics(c.article).hn?.recentMentionCount > 0 && sourceMetrics(c.article).hn.latestMention >= sixMonthsAgo(now / 1000)) ||
+      c.article.mentions?.some(m => (!m.source || m.source === 'hn') && m.createdAt >= sixMonthsAgo(now / 1000))).sort((a, b) => (sourceMetrics(b.article).hn?.recentLinkers || 0) - (sourceMetrics(a.article).hn?.recentLinkers || 0)),
     interest: [...pool].sort((a, b) => b.score - a.score),
   };
   const ranked = [], used = new Set();
@@ -142,7 +143,7 @@ export function recommend(articles, profile = emptyProfile(), { now = Date.now()
     }
     used.add(next.article.id);
     const reason = lane === 'top' ? 'Popular across Hacker News · all time' : lane === 'rising' ? 'Trending on Hacker News · last six months' :
-      next.affinity > .12 ? next.reason : 'Random discovery from the HN archive';
+      next.affinity > .12 ? next.reason : `Random discovery from the ${sourceLabel(next.article)} archive`;
     ranked.push({ ...next.article, recommendation: { score: next.score, reason, lane } });
   }
   return ranked;

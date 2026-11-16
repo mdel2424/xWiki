@@ -7,7 +7,7 @@ export const canonicalTopic = id => TOPIC_ALIASES[id] || id;
 
 export const HOME_FEEDS = [{ id: 'for-you', label: 'Home' }, ...TOPICS];
 export const FEED_SORTS = [
-  { id: 'for-you', label: 'For You (HN)', description: 'Personalized discoveries', icon: 'shuffle' },
+  { id: 'for-you', label: 'For You', description: 'Personalized discoveries', icon: 'shuffle' },
   { id: 'top', label: 'Top (HN)', description: 'Most linked · all time', icon: 'trend' },
   { id: 'rising', label: 'Rising (HN)', description: 'Most linked · past six months', icon: 'rise' },
   { id: 'wikipedia', label: 'Top (Wikipedia)', description: 'Popular on Wikipedia', icon: 'book' },

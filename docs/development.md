@@ -27,7 +27,7 @@ npm run build -- --reuse-data
 npm run preview
 ```
 
-The build copies `index.html`, `site.webmanifest`, `style.css`, `src/`, `images/`, and `data/` into `dist/` and adds `.nojekyll`. The bundled export contains 201,844 articles and 697,007 HN mentions, about 631 MB of published files. The build enforces a 950 MB budget. `dist/` and the local database are ignored by Git.
+The build copies `index.html`, `site.webmanifest`, `style.css`, `src/`, `images/`, and `data/` into `dist/` and adds `.nojekyll`. The bundled export contains 208,498 articles and 755,343 linked mentions, about 675 MB of published files. The build enforces a 950 MB budget. `dist/` and the local database are ignored by Git.
 
 With an imported archive at `.data/wikihack.sqlite`, `npm run build` exports fresh data before assembling the site. Use `--reuse-data` for UI changes and builds that should retain the existing snapshot.
 
@@ -43,7 +43,8 @@ Python 3.10 or later, SQLite FTS5, and DuckDB are used for offline data preparat
 
 ```sh
 npm run data:setup
-npm run data:sync                    # Resumable archive backfill
+npm run data:sync                    # Resumable HN archive backfill
+npm run data:lesswrong               # Resumable LessWrong snapshot import
 npm run data:tail                    # New HN IDs, updates, retries and overlap
 npm run data:enrich -- --limit 1000
 npm run data:export                  # Export to data/catalog/
@@ -69,7 +70,7 @@ The exporter reads a consistent SQLite snapshot, checks comment offsets, and sta
 
 `data/catalog/manifest.json` points to a versioned snapshot containing article cards, search postings, rankings, ID/redirect lookups, discovery weights, Wikipedia topic memberships and popularity ranking, and paginated HN comments. The client fetches shards as needed and keeps a bounded cache.
 
-Recommendations, likes, seen history, and pins stay in the browser. Personalized candidate batches fetch recent Wikipedia pageviews for a bounded readership preference; unavailable traffic remains neutral. Counts are cached for a day, and low readership is penalized most when HN linking is also low. Saved preferences use localStorage. Topic membership comes exclusively from Wikipedia’s article-topic predictions at a confidence of at least 0.5. The shared `src/topic-definitions.json` maps model labels into 21 display groups. Titles, summaries, and categories do not decide membership. Unscored articles remain available in For you and search. The Home tab replaces the former For you tab. One toolbar beneath the topics combines the sort button and archive count. Sort choices appear in this order: For You (HN), Top (HN), Rising (HN), Top (Wikipedia). For You (HN) is the default and applies the same personalization and 80/10/10 discovery mix within each group. Top (Wikipedia), Top (HN), and Rising (HN) filter the complete published rankings by topic and preserve their order regardless of likes. Topic classification confidence never ranks posts. Each topic/sort pair owns its candidates, source lanes, request tickets, and pagination cursor. Search is search-only and does not change the Home selection. Original HN comment text is escaped before rendering. Article previews prefer the Wikipedia lead image. If none exists, a separate background request parses the article and selects the first substantial body image in reading order, skipping navigation, maintenance notices and small decorative icons. Body diagrams use contain sizing to keep the whole image visible. Results, including successful no-image checks, are cached in the feed; image display settings apply to these requests. Offline metadata enrichment uses the same selection rules.
+Recommendations, likes, seen history, and pins stay in the browser. Personalized candidate batches fetch recent Wikipedia pageviews for a bounded readership preference; unavailable traffic remains neutral. Counts are cached for a day, and low readership is penalized most when community interest is also low. Saved preferences use localStorage. Topic membership comes exclusively from Wikipedia’s article-topic predictions at a confidence of at least 0.5. The shared `src/topic-definitions.json` maps model labels into 21 display groups. Titles, summaries, and categories do not decide membership. Unscored articles remain available in For you and search. The Home tab replaces the former For you tab. One toolbar beneath the topics combines the sort button and archive count. Sort choices appear in this order: For You, Top (HN), Rising (HN), Top (Wikipedia). For You is the default and applies the same personalization and 80/10/10 discovery mix within each group. Top (Wikipedia), Top (HN), and Rising (HN) filter the complete published rankings by topic and preserve their order regardless of likes. Topic classification confidence never ranks posts. Each topic/sort pair owns its candidates, source lanes, request tickets, and pagination cursor. Search is search-only and does not change the Home selection. Original HN comment text is escaped before rendering. Article previews prefer the Wikipedia lead image. If none exists, a separate background request parses the article and selects the first substantial body image in reading order, skipping navigation, maintenance notices and small decorative icons. Body diagrams use contain sizing to keep the whole image visible. Results, including successful no-image checks, are cached in the feed; image display settings apply to these requests. Offline metadata enrichment uses the same selection rules.
 
 The topic picker defaults to alphabetical order. Dragging a handle saves a custom order separately from pin membership; pinned Home tabs follow that custom order. Without a saved order, the Home defaults remain Computing, Physics & Chemistry, History. Existing saved pins and orders migrate to the broader groups; Psychology becomes Society & Education. Reordering supports mouse and touch, edge scrolling, and Space/arrow/Enter keyboard controls with Escape to cancel. New topics are appended alphabetically to saved orders.
 
@@ -112,3 +113,28 @@ tests/                        Unit, export and browser checks
 .github/workflows/pages.yml   GitHub Pages deployment
 dist/                         Generated deployment output (ignored)
 ```
+
+## LessWrong source
+
+`npm run data:lesswrong` downloads the revision-pinned Parquet snapshot from
+`x65617379/lesswrong_260509` and imports Wikipedia links from post bodies, link-post URLs,
+and comments into the local archive. Install the data dependencies with `npm run data:setup`
+first. Downloads and committed row checkpoints are reused on reruns. `-- --max-posts 1000`
+limits a run; `-- --file /path/to/shard.parquet` imports a local shard. Deleted and retracted
+comments are excluded. Only URLs, source IDs, author IDs/display names, timestamps, scores,
+and parent-post titles are retained. Full LessWrong post and comment bodies are not exported.
+
+Run `npm run data:export` to publish the combined static catalogue. For newly discovered
+Wikipedia titles, collect the existing topic/popularity indexes with `npm run data:topics`
+and `npm run data:wikipedia`, then rerun `npm run data:lesswrong` to merge cached redirects
+and remove missing targets, and export again. Back up the previous export if it is needed
+while collecting metadata. The importer never automatically deploys the site.
+
+Distinct LessWrong linkers use stable account IDs, with one vote of interest per article
+per account regardless of repeated links. HN and LessWrong remain separate namespaces;
+forum karma is retained only as context metadata. For discovery, LessWrong linker-count
+percentiles map to HN-equivalent counts before the existing low-interest penalty and
+popularity cap. Each available community's weights then sum to one half of discovery mass.
+Articles linked by both receive both signals and appear once. The 80/10/10 discovery,
+Rising (HN), and Top (HN) mix remains intact; hearts and Wikipedia readership still apply.
+Top/Rising HN sorts and rank rebuilds use HN mentions exclusively.

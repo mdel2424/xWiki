@@ -52,3 +52,18 @@ test('weighted order is repeat-free, reproducible, refreshable and handles empty
   assert.deepEqual([...discoveryOrder([], 42)], []);
   assert.deepEqual([...discoveryOrder([0], 42)], [0]);
 });
+
+test('community normalization gives equal mass despite different sizes and raw counts', async () => {
+  const { communityWeights } = await import('../src/discovery.js');
+  const hn = [...Array(100).fill(1), ...Array(10).fill(10), 100, 0, 0, 0];
+  const lw = [...Array(111).fill(0), 1, 2, 3];
+  const weights = communityWeights({ version: 2, sources: { hn, lesswrong: lw } });
+  assert.ok(Math.abs(weights.slice(0, 111).reduce((a, b) => a + b, 0) - .5) < 1e-12);
+  assert.ok(Math.abs(weights.slice(111).reduce((a, b) => a + b, 0) - .5) < 1e-12);
+  assert.ok(weights[113] > weights[111], 'Broad interest within LessWrong is preferred over its low-link tail');
+  const mixed = discoveryOrder({ version: 2, sources: { hn, lesswrong: lw } }, 24);
+  assert.equal(new Set(mixed).size, hn.length);
+  assert.deepEqual([...mixed].sort((a, b) => a - b), hn.map((_, i) => i));
+  const onlyHN = discoveryOrder({ version: 2, sources: { hn: [1, 5, 20], lesswrong: [0, 0, 0] } }, 2);
+  assert.deepEqual(onlyHN, discoveryOrder([1, 5, 20], 2));
+});

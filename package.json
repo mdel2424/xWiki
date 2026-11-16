@@ -10,6 +10,7 @@
     "index": "node scripts/pipeline.mjs sync",
     "data:setup": "node scripts/pipeline.mjs setup",
     "data:sync": "node scripts/pipeline.mjs sync",
+    "data:lesswrong": "node scripts/pipeline.mjs lesswrong",
     "data:tail": "node scripts/pipeline.mjs tail",
     "data:watch": "node scripts/pipeline.mjs watch",
     "data:status": "node scripts/pipeline.mjs status",

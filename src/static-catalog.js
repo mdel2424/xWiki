@@ -61,8 +61,9 @@ export class StaticCatalog {
     if (!this.manifest.discoveryWeights) return null; // Older exports still work.
     if (this.discovery?.seed === seed) return this.discovery.order;
     const order = this.read(this.file(this.manifest.discoveryWeights)).then(linkers => {
-      if (!Array.isArray(linkers) || linkers.length !== this.manifest.articleCount ||
-          linkers.some(count => !Number.isInteger(count) || count < 0 || count > 255)) throw new Error('Invalid discovery weights.');
+      const vectors = Array.isArray(linkers) ? [linkers] : linkers?.version === 2 && linkers.sources ? [linkers.sources.hn, linkers.sources.lesswrong] : [];
+      if (!vectors.length || vectors.some(vector => !Array.isArray(vector) || vector.length !== this.manifest.articleCount ||
+          vector.some(count => !Number.isSafeInteger(count) || count < 0))) throw new Error('Invalid discovery weights.');
       return discoveryOrder(linkers, seed);
     }).catch(error => {
       if (this.discovery?.order === order) this.discovery = null;
@@ -200,7 +201,8 @@ export class StaticCatalog {
         const canonical = allowed ? new Set(candidates.map(i => ranking.redirects?.[i] ?? i)) : null;
         ids = ranking.order.filter(i => !canonical || canonical.has(i));
       }
-      else if (sort === 'top') ids = candidates || Array.from({ length: this.manifest.articleCount }, (_, i) => i);
+      else if (sort === 'top') ids = (candidates || Array.from({ length: this.manifest.hnArticleCount ?? this.manifest.articleCount }, (_, i) => i))
+        .filter(i => i < (this.manifest.hnArticleCount ?? this.manifest.articleCount));
       else if (sort === 'rising') ids = (await this.ranks('rising', 0, this.manifest.risingCount)).filter(i => !allowed || allowed.has(i));
       else throw new Error('Unknown feed sort.');
       ids = ids.filter(i => !this.nonArticles.has(i));
@@ -224,13 +226,13 @@ export class StaticCatalog {
       const [weighted, rising] = await Promise.all([
         this.discoveryOrder(mix), this.ranks('rising', 0, this.manifest.risingCount),
       ]);
-      pools = { top: candidates.slice(0, 1000), rising: rising.filter(id => allowed.has(id)).slice(0, 1000),
+      pools = { top: candidates.filter(i => i < (this.manifest.hnArticleCount ?? this.manifest.articleCount)).slice(0, 1000), rising: rising.filter(id => allowed.has(id)).slice(0, 1000),
         random: weighted ? Array.from(weighted).filter(id => allowed.has(id)) : candidates };
     }
     const take = async (lane, wanted) => {
       // Featured lanes sample the leading 1,000; random spans the entire archive.
       const count = pools ? pools[lane].length : lane === 'random' ? this.manifest.articleCount :
-        Math.min(1000, lane === 'rising' ? this.manifest.risingCount : this.manifest.articleCount);
+        Math.min(1000, lane === 'rising' ? this.manifest.risingCount : this.manifest.hnArticleCount ?? this.manifest.articleCount);
       while (sources[lane].length < wanted && positions[lane] < count) {
         const remaining = wanted - sources[lane].length;
         let draw, indices;
@@ -255,7 +257,7 @@ export class StaticCatalog {
     };
     await take('top', size / 10);
     await take('rising', size / 10);
-    await take('random', size * .8);
+    await take('random', size - sources.top.length - sources.rising.length);
     return { articles, sources, nextCursor: positions.random < (pools?.random.length ?? this.manifest.articleCount) ? positions : null, mode };
   }
 

@@ -17,5 +17,5 @@ test('main-page filtering covers languages, normalized URLs, and preserves genui
 
 test('Home keeps its existing feed identifier and sort choices follow the requested order', () => {
   assert.deepEqual(HOME_FEEDS[0], { id: 'for-you', label: 'Home' });
-  assert.deepEqual(FEED_SORTS.map(sort => sort.label), ['For You (HN)', 'Top (HN)', 'Rising (HN)', 'Top (Wikipedia)']);
+  assert.deepEqual(FEED_SORTS.map(sort => sort.label), ['For You', 'Top (HN)', 'Rising (HN)', 'Top (Wikipedia)']);
 });
