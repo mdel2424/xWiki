@@ -1,6 +1,6 @@
 import { isMainPage } from './article-pages.js';
 import { imageSource, recoverImage } from './images.js';
-import { sourceLabel } from './communities.js';
+import { sourceLabel, dominantSource } from './communities.js';
 import { fetchArticleImage, BODY_IMAGE_VERSION } from './article-images.js';
 import { fetchReadership } from './readership.js';
 import { mergeArticles, applyEnrichment, uniqueAuthors, searchArticles, safeHttps, rankArticles } from './core.js';
@@ -199,6 +199,7 @@ function renderPage() {
 }
 function card(article, index) {
   const stats = metrics(article), media = imageSource(safeHttps(article.thumbnail));
+  const lwBadge = dominantSource(article) === 'lesswrong';
   const paragraph = paragraphText(article), open = expanded.has(article.id);
   const canExpand = Boolean(article.firstParagraph || article.sample) && paragraph !== excerpt(paragraph);
   return `<article class="article-card" data-id="${esc(article.id)}">
@@ -207,7 +208,7 @@ function card(article, index) {
         <div class="menu-wrap"><button class="more-button" data-action="menu" aria-label="More options" aria-haspopup="menu" aria-expanded="false" aria-controls="post-menu-${index}">${icon('more')}</button>
           <div class="post-menu" id="post-menu-${index}" role="menu" hidden><button role="menuitem" data-action="not-interested">${icon('dislike')}Not interested in this post</button><button role="menuitem" data-action="why">${icon('info')}Why this post?</button><button role="menuitem" data-action="context">${icon('comment')}View discussion sources</button></div></div>
       </div>
-      ${article.sample ? '<div class="preview-tag">Preview collection</div>' : `<button class="mention-label" data-action="context"><span class="hn-mini ${article.sourceMetrics?.lesswrong ? 'lw-mini' : ''}">${article.sourceMetrics?.lesswrong ? 'LW' : 'Y'}</span> ${stats.people ? `Linked by ${stats.people.toLocaleString()} ${article.sourceMetrics?.hn && article.sourceMetrics?.lesswrong ? 'accounts' : stats.people === 1 ? 'person' : 'people'} on` : 'Linked on'} ${esc(sourceLabel(article))}</button>`}
+      ${article.sample ? '<div class="preview-tag">Preview collection</div>' : `<button class="mention-label" data-action="context"><span class="hn-mini ${lwBadge ? 'lw-mini' : ''}">${lwBadge ? 'LW' : 'Y'}</span> ${stats.people ? `Linked by ${stats.people.toLocaleString()} ${article.sourceMetrics?.hn && article.sourceMetrics?.lesswrong ? 'accounts' : stats.people === 1 ? 'person' : 'people'} on` : 'Linked on'} ${esc(sourceLabel(article))}</button>`}
       <a class="article-title" href="${esc(wikiHref(article))}" ${wikiTarget}><h2>${esc(article.title)}</h2></a>
       <p class="article-extract" id="post-text-${index}">${esc(open ? paragraph : excerpt(paragraph))}</p>
       ${canExpand || open ? `<button class="read-more" data-action="expand" aria-expanded="${open}" aria-controls="post-text-${index}">${open ? 'Read less' : 'Read more'}</button>` : ''}

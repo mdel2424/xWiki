@@ -11,3 +11,8 @@ export function sourceLabel(article) {
   const sources = sourceMetrics(article);
   return [sources.hn ? 'HN' : '', sources.lesswrong ? 'LessWrong' : ''].filter(Boolean).join(' & ') || 'HN';
 }
+
+export function dominantSource(article) {
+  const sources = sourceMetrics(article);
+  return sources.lesswrong && (!sources.hn || sources.lesswrong.distinctLinkers > sources.hn.distinctLinkers) ? 'lesswrong' : 'hn';
+}
